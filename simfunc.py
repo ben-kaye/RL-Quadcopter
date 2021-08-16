@@ -3,16 +3,20 @@ import math
 
 # functions to compute quadcopter state
 # x = { x, y, z, dt(x, y, z), gam, beta, alpha, dt(gam, beta, alpha) }
-# u = { f1, f2, f3, f4 }
+# u = { f1, f2, f3, f4 } from 0 to 1
 # dt = scalar time increment for forward euler integration
 # equations of motion are standard results
 
 
 def state_advance(x, u, dt):
 
+    dtype = np.float32
+
     f_max = 30
 
-    u = np.array([min(max(h, 0), f_max) for h in u])
+    # input = np.array([min(max(h, 0), f_max) for h in u])
+
+    command = np.array([h*f_max for h in u], dtype=dtype) # multiply u in [0, 1] by thrust
 
     p = x[0:3]
     pdot = x[3:6]
@@ -21,7 +25,7 @@ def state_advance(x, u, dt):
 
     trig = get_trig(e_angles)
 
-    impulses = vect(get_M().dot(u))
+    impulses = vect(get_M().dot(command))
 
     thrust = impulses.item(0)
 

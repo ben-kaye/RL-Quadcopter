@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import abc
+from numpy import random
 import tensorflow as tf
 import numpy as np
 
@@ -15,17 +16,39 @@ from tf_agents.environments import wrappers
 from tf_agents.environments import suite_gym
 from tf_agents.trajectories import time_step as ts
 
+import simfunc
+
+import math
 
 # TODO: implement simfunc as PyEnvironment
 
+
 class QCEnv(py_environment.PyEnvironment):
     def __init__(self):
+
+        self.dtype = np.float32
+
         self._action_spec = array_spec.BoundedArraySpec(
-        shape=(), dtype=np.int32, minimum=0, maximum=1, name='action')
+            shape=(4,), dtype=self.dtype, minimum=0, maximum=1, name='action')
         self._observation_spec = array_spec.BoundedArraySpec(
-        shape=(1,), dtype=np.int32, minimum=0, name='observation')
-        self._state = 0
+            shape=(12,), dtype=self.dtype, minimum=-np.inf, name='observation')  # should min be inf?
+
+        RNG = np.random.default_rng()
+        random_pose = [u*np.pi/3 for u in RNG.standard_normal(3)]
+
+        self._state = np.array([0 for i in range(12)], dtype=self.dtype)
+
+        self.target_pose = random_pose
+
+        self.sim_time = 30
+        self.dt = 1e-3
+        self.time = float(0)
+
         self._episode_ended = False
+
+    def reward_func(state, target):
+        e_angles = state[6:9] # TODO convert representation to quaternions
+        return -math.log(1 + float((target - e_angles).dot(target - e_angles)))
 
     def action_spec(self):
         return self._action_spec
@@ -35,28 +58,31 @@ class QCEnv(py_environment.PyEnvironment):
 
     def _reset(self):
         self._state = 0
+        self.time = 0
         self._episode_ended = False
-        return ts.restart(np.array([self._state], dtype=np.int32))
+        return ts.restart(np.array([self._state], dtype=self.dtype))
 
     def _step(self, action):
 
         if self._episode_ended:
-        # The last action ended the episode. Ignore the current action and start
-        # a new episode.
+            # The last action ended the episode. Ignore the current action and start
+            # a new episode.
             return self.reset()
 
         # Make sure episodes don't go on forever.
-        if action == 1:
-            self._episode_ended = True
-        elif action == 0:
-            new_card = np.random.randint(1, 11)
-            self._state += new_card
-        else:
-            raise ValueError('`action` should be 0 or 1.')
+        simfunc.state_advance(self._state, action, self.dt)
 
-        if self._episode_ended or self._state >= 21:
-            reward = self._state - 21 if self._state <= 21 else -21
-            return ts.termination(np.array([self._state], dtype=np.int32), reward)
+        self.time += self.dt
+
+        if self.time > self.sim_time:
+            self._episode_ended = True
+
+        # might convert to quaternion instead for uniqueness
+        new_reward = self.reward_func(self._state, self.target_pose)
+
+        if self._episode_ended:
+            return ts.termination(np.array([self._state], dtype=self.dtype), reward=new_reward)
         else:
-            return ts.transition(
-                np.array([self._state], dtype=np.int32), reward=0.0, discount=1.0)
+            return ts.transition(np.array([self._state], dtype=self.dtype), reward=new_reward)
+
+    
