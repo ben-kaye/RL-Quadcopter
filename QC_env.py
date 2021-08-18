@@ -48,7 +48,11 @@ class QCEnv(py_environment.PyEnvironment):
 
     def reward_func(state, target):
         e_angles = state[6:9] # TODO convert representation to quaternions
-        return -math.log(1 + float((target - e_angles).dot(target - e_angles)))
+        #return -math.log(1 + float((target - e_angles).dot(target - e_angles)))
+        objective = float((target - e_angles).dot(target - e_angles))
+
+        # objective = 0 is goal
+        return math.exp(-objective)
 
     def action_spec(self):
         return self._action_spec
@@ -69,9 +73,7 @@ class QCEnv(py_environment.PyEnvironment):
             # a new episode.
             return self.reset()
 
-        # Make sure episodes don't go on forever.
         simfunc.state_advance(self._state, action, self.dt)
-
         self.time += self.dt
 
         if self.time > self.sim_time:
@@ -84,5 +86,10 @@ class QCEnv(py_environment.PyEnvironment):
             return ts.termination(np.array([self._state], dtype=self.dtype), reward=new_reward)
         else:
             return ts.transition(np.array([self._state], dtype=self.dtype), reward=new_reward)
+
+    def _observe(self):
+        # return target too?
+        return self._state
+
 
     

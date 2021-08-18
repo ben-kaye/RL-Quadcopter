@@ -16,7 +16,8 @@ def state_advance(x, u, dt):
 
     # input = np.array([min(max(h, 0), f_max) for h in u])
 
-    command = np.array([h*f_max for h in u], dtype=dtype) # multiply u in [0, 1] by thrust
+    # multiply u in [0, 1] by thrust
+    command = np.array([h*f_max for h in u], dtype=dtype)
 
     p = x[0:3]
     pdot = x[3:6]
@@ -110,9 +111,9 @@ def get_M():
     c = 6e-3
 
     return np.matrix([[1, 1, 1, 1],
-                      [u*xdist for u in [1, -1, -1,  1]],
-                      [u*ydist for u in [-1, -1,  1,  1]],
-                      [u*c for u in [-1,  1, -1,  1]]])
+                      [xdist, -xdist, -xdist,  xdist],
+                      [-ydist, -ydist,  ydist,  ydist],
+                      [-c,  c, -c,  c]])
 
 
 def vect(should_be_vec):
