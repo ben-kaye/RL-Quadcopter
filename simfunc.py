@@ -17,12 +17,12 @@ def state_advance(x, u, dt):
     # input = np.array([min(max(h, 0), f_max) for h in u])
 
     # multiply u in [0, 1] by thrust
-    command = np.array([h*f_max for h in u], dtype=dtype)
+    command = vect([h*f_max for h in u])
 
     p = x[0:3]
     pdot = x[3:6]
     e_angles = x[6:9]
-    e_dot = x[9:]
+    e_dot = x[9:12]
 
     trig = get_trig(e_angles)
 
@@ -117,4 +117,4 @@ def get_M():
 
 
 def vect(should_be_vec):
-    return np.array(should_be_vec).squeeze()
+    return np.array(should_be_vec, dtype=np.float32).squeeze()

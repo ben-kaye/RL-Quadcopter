@@ -21,8 +21,12 @@ from tf_agents.networks import actor_distribution_network
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.trajectories import trajectory
 from tf_agents.utils import common
+from tf_agents.policies import policy_saver
 
 import episode_funcs as epfun
+import time
+
+import os
 
 import QC_env
 
@@ -53,7 +57,7 @@ actor_net = actor_distribution_network.ActorDistributionNetwork(
 optimiser = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 train_step_counter = tf.compat.v2.Variable(0)
 
-tf_agent = reinforce_agent.ReinforceAgent(
+tf_agent = reinforce_agent.ReinforceAgent( 
     train_env.time_step_spec(),
     train_env.action_spec(),
     actor_network=actor_net,
@@ -82,6 +86,8 @@ tf_agent.train_step_counter.assign(0)
 avg_return = epfun.compute_avg_return(train_env, tf_agent.policy, num_eval_episodes)
 returns = [avg_return]
 
+
+start_time = time.time()
 for _ in range(num_iterations):
     epfun.collect_episode(train_env, tf_agent.collect_policy, replay_buffer, collect_episodes_per_iteration)
     experience = replay_buffer.gather_all()
@@ -99,10 +105,18 @@ for _ in range(num_iterations):
         returns.append(avg_return)
 
 
+fin_time = time.time()
+
 #%%
 steps = range(0, num_iterations + 1, eval_interval)
 plt.plot(steps, returns)
 plt.ylabel('average return')
 plt.xlabel('step')
 
-print('exec done')
+print('exec done. {:.2f}s'.format(fin_time - start_time))
+
+keras_model_path = "/net/model"
+# model.save(keras_model_path)
+policy_dir = os.path.join(keras_model_path, 'policy')
+tf_policy_saver = policy_saver.PolicySaver(tf_agent.policy)
+tf_policy_saver.save(policy_dir)

@@ -31,24 +31,28 @@ class QCEnv(py_environment.PyEnvironment):
         self._action_spec = array_spec.BoundedArraySpec(
             shape=(4,), dtype=self.dtype, minimum=0, maximum=1, name='action')
         self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(12,), dtype=self.dtype, minimum=-np.inf, name='observation')  # should min be inf?
+            shape=(15,), dtype=self.dtype, minimum=-np.inf, name='observation')  # should min be inf?
 
-        RNG = np.random.default_rng()
-        random_pose = [u*np.pi/3 for u in RNG.standard_normal(3)]
+        self.RNG = np.random.default_rng()
 
-        self._state = np.array([0 for i in range(12)], dtype=self.dtype)
+        random_pose = [u*np.pi/3 for u in self.RNG.standard_normal(3)]
+        state_vars = [0 for _ in range(12)]
+        state_vars.extend(random_pose)
+        self._state = np.array(state_vars, dtype=self.dtype)
 
-        self.target_pose = random_pose
+        # self.target_pose = np.array(random_pose, dtype=self.dtype)
 
-        self.sim_time = 30
-        self.dt = 1e-3
+        self.sim_time = 20
+        self.dt = 1e-2
         self.time = float(0)
 
         self._episode_ended = False
 
-    def reward_func(state, target):
+    def reward_func(self, state):
         e_angles = state[6:9] # TODO convert representation to quaternions
-        #return -math.log(1 + float((target - e_angles).dot(target - e_angles)))
+        target = state[12:15]
+      
+        #return -math.log(1 + float((target - e_angles).dot(target - e_angles))) can't have reward space be negative for all x
         objective = float((target - e_angles).dot(target - e_angles))
 
         # objective = 0 is goal
@@ -61,9 +65,16 @@ class QCEnv(py_environment.PyEnvironment):
         return self._observation_spec
 
     def _reset(self):
-        self._state = 0
+        random_pose = [u*np.pi/3 for u in self.RNG.standard_normal(3)]
+        state_vars = [0 for _ in range(12)]
+        state_vars.extend(random_pose)
+
+
+        self._state = np.array(state_vars, dtype=self.dtype)
+
         self.time = 0
         self._episode_ended = False
+        # self.random_pose = [u*np.pi/3 for u in self.RNG.standard_normal(3)]
         return ts.restart(np.array([self._state], dtype=self.dtype))
 
     def _step(self, action):
@@ -80,7 +91,7 @@ class QCEnv(py_environment.PyEnvironment):
             self._episode_ended = True
 
         # might convert to quaternion instead for uniqueness
-        new_reward = self.reward_func(self._state, self.target_pose)
+        new_reward = self.reward_func(self._state)
 
         if self._episode_ended:
             return ts.termination(np.array([self._state], dtype=self.dtype), reward=new_reward)
